@@ -1,0 +1,9 @@
+{
+  "short_name": "Ju Control",
+  "theme_color": "#800020",
+  "background_color": "#800020",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/"
+}
