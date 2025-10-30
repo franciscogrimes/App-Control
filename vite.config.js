@@ -12,32 +12,35 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      devOptions: {
-        enabled: false
-      },
-      includeAssets: ['favicon.ico', 'icon-192x192.png', 'icon-512x512.png'],
+      injectRegister: 'auto',
+      includeAssets: ['favicon.ico', 'icon-192x192.png', 'icon-512x512.png', 'juliana_estetica.jpg', 'logo.svg'],
       manifest: {
-        name: 'Ju Control - Stock Management',
+        name: 'Ju Control',
         short_name: 'Ju Control',
         description: 'Sistema de controle de estoque',
-        theme_color: '#000000',
-        background_color: '#ffffff',
+        theme_color: '#800020',
+        background_color: '#800020',
         display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
         icons: [
           {
             src: 'icon-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: 'icon-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true
       }
