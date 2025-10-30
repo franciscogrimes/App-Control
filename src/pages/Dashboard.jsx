@@ -126,7 +126,7 @@ export default function Dashboard() {
                     {row.quantidade}
                   </TableCell>
                   <TableCell className="text-right text-gray-800 font-semibold">
-                    R$ {row.valor}
+                    {row.valor}
                   </TableCell>
                 </TableRow>
               ))}
