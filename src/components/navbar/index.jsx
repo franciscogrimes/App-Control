@@ -12,8 +12,9 @@ export function Navbar() {
   const menuItems = [
     { name: "Dashboard", path: "/" },
     { name: "Clientes", path: "/clientes" },
-    { name: "Pedidos", path: "/pedidos" },
-    { name: "produtos", path: "/produtos" },
+    { name: "Saidas", path: "/saidas" },
+    { name: "Produtos", path: "/produtos" },
+    { name: "Entradas", path: "/entradas" },
   ];
 
   const handleMenuClick = (item) => {

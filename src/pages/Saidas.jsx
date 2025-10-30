@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-export default function Pedidos() {
+export default function Saidas() {
 
   const pedidosCadastrados = [
     {
@@ -40,6 +40,15 @@ export default function Pedidos() {
   const [pedidos, setPedidos] = useState(pedidosCadastrados);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
+  const [filtroValor, setFiltroValor] = useState('');
+  
+  // Colunas visíveis
+  const [colunasVisiveis, setColunasVisiveis] = useState({
+    data: true,
+    cliente: true,
+    quantidade: true,
+    valor: true
+  });
 
   const [quantidade, setQuantidade] = useState(1);
   const [precoUnitario, setPrecoUnitario] = useState(5);
@@ -94,47 +103,145 @@ export default function Pedidos() {
     setModalOpen(false);
   };
 
+  // Função para alternar visibilidade de coluna
+  const toggleColuna = (coluna) => {
+    setColunasVisiveis(prev => ({
+      ...prev,
+      [coluna]: !prev[coluna]
+    }));
+  };
+
+  // Filtro de busca geral
+  const pedidosFiltrados = pedidos.filter((pedido) => {
+    if (!filtroValor) return true;
+    
+    const valorBusca = filtroValor.toLowerCase();
+    return (
+      pedido.data.toLowerCase().includes(valorBusca) ||
+      pedido.cliente.toLowerCase().includes(valorBusca) ||
+      pedido.quantidade.toString().includes(valorBusca) ||
+      pedido.valor.includes(valorBusca)
+    );
+  });
+
   return (
     <section className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 md:px-8">
       <div className="container mx-auto">
-        <div className="mb-6">
-          <Button
-            onClick={handleAddClick}
-            className="bg-[#800020] hover:bg-[#600018] h-12 text-lg gap-2"
-          >
-            <FaPlus />
-            Adicionar pedido
-          </Button>
+        <div className="mb-6 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <Button
+              onClick={handleAddClick}
+              className="bg-[#800020] hover:bg-[#600018] h-12 text-lg gap-2"
+            >
+              <FaPlus />
+              Adicionar Saída
+            </Button>
+
+            {/* Campo de busca */}
+            <input
+              type="text"
+              placeholder="Buscar em todas as colunas..."
+              value={filtroValor}
+              onChange={(e) => setFiltroValor(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 
+                         placeholder-gray-400 focus:outline-none focus:ring-2 
+                         focus:ring-[#800020] focus:border-transparent w-full md:w-80"
+            />
+          </div>
+
+          {/* Seletor de colunas visíveis */}
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Colunas visíveis:</h3>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={colunasVisiveis.data}
+                  onChange={() => toggleColuna('data')}
+                  className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
+                />
+                <span className="text-sm text-gray-700">Data</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={colunasVisiveis.cliente}
+                  onChange={() => toggleColuna('cliente')}
+                  className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
+                />
+                <span className="text-sm text-gray-700">Cliente</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={colunasVisiveis.quantidade}
+                  onChange={() => toggleColuna('quantidade')}
+                  className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
+                />
+                <span className="text-sm text-gray-700">Unidades</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={colunasVisiveis.valor}
+                  onChange={() => toggleColuna('valor')}
+                  className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
+                />
+                <span className="text-sm text-gray-700">Valor</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div>
           <Table>
             <TableCaption className="text-gray-500 py-4">
-              Dados simulados apenas para exibição
+              {pedidosFiltrados.length === 0 
+                ? "Nenhuma saída encontrada" 
+                : `${pedidosFiltrados.length} saída(s) encontrada(s)`}
             </TableCaption>
             <TableHeader className="items-center">
               <TableRow className="bg-gray-50">
-                <TableHead className="font-semibold">Dia</TableHead>
-                <TableHead className="font-semibold">Cliente</TableHead>
-                <TableHead className="font-semibold">Unidades</TableHead>
-                <TableHead className="font-semibold text-right">Valor (R$)</TableHead>
+                {colunasVisiveis.data && (
+                  <TableHead className="font-semibold">Data</TableHead>
+                )}
+                {colunasVisiveis.cliente && (
+                  <TableHead className="font-semibold">Cliente</TableHead>
+                )}
+                {colunasVisiveis.quantidade && (
+                  <TableHead className="font-semibold">Unidades</TableHead>
+                )}
+                {colunasVisiveis.valor && (
+                  <TableHead className="font-semibold text-right">Valor (R$)</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pedidos.map((row) => (
+              {pedidosFiltrados.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium text-gray-700">
-                    {row.data}
-                  </TableCell>
-                  <TableCell className="text-gray-700">
-                    {row.cliente}
-                  </TableCell>
-                  <TableCell className="text-gray-700">
-                    {row.quantidade}
-                  </TableCell>
-                  <TableCell className="text-right text-gray-800 font-semibold">
-                    R$ {row.valor}
-                  </TableCell>
+                  {colunasVisiveis.data && (
+                    <TableCell className="font-medium text-gray-700">
+                      {row.data}
+                    </TableCell>
+                  )}
+                  {colunasVisiveis.cliente && (
+                    <TableCell className="text-gray-700">
+                      {row.cliente}
+                    </TableCell>
+                  )}
+                  {colunasVisiveis.quantidade && (
+                    <TableCell className="text-gray-700">
+                      {row.quantidade}
+                    </TableCell>
+                  )}
+                  {colunasVisiveis.valor && (
+                    <TableCell className="text-right text-gray-800 font-semibold">
+                      R$ {row.valor}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

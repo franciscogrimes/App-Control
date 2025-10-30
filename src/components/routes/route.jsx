@@ -5,7 +5,8 @@ import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Clientes from "@/pages/Clientes";
 import Produtos from "@/pages/Produtos";
-import Pedidos from "@/pages/Pedidos";
+import Saidas from "@/pages/Saidas";
+import Entradas from "@/pages/Entradas";
 
 export const router = createBrowserRouter([
   {
@@ -37,8 +38,12 @@ export const router = createBrowserRouter([
         element: <Produtos />
       },
       {
-        path: "/pedidos",
-        element: <Pedidos />
+        path: "/saidas",
+        element: <Saidas />
+      },
+      {
+        path: "/entradas",
+        element: <Entradas />
       }
     ]
   }
