@@ -1,58 +1,56 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import tailwindcss from '@tailwindcss/vite'
-import { fileURLToPath, URL } from "node:url";
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),
     VitePWA({
-      
       registerType: 'autoUpdate',
-      strategies: 'injectManifest', 
-      srcDir: 'src',
-      filename: 'Service-Worker.js', 
-      exclude: [
-          /\.map$/,
-          /^manifest.*\.js$/,
-          /data:/, // Exclui Data URLs
-          /blob:/, // Exclui Blob URLs
-        ],
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Ju Control',
-        short_name: 'Ju Control',
-        theme_color: '#800020',
-        background_color: '#800020',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        short_name: "Ju Control",
+        name: "Ju Control - Stock Management",
         icons: [
           {
-            src: '/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
+            src: "pwa-192x192.png",
+            type: "image/png",
+            sizes: "192x192",
+            purpose: "any maskable"
           },
           {
-            src: '/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: "pwa-512x512.png",
+            type: "image/png",
+            sizes: "512x512",
+            purpose: "any maskable"
+          }
+        ],
+        start_url: ".",
+        display: "standalone",
+        theme_color: "#000000",
+        background_color: "#ffffff",
+        description: "Sistema de controle de estoque"
+      },
+      workbox: {
+        // Configuração do service worker
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 ano
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
         ]
       }
     })
-  ],
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false
-  }
+  ]
 })
