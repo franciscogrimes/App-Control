@@ -6,20 +6,21 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'generateSW',
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['favicon.ico', 'icon-192x192.png', 'icon-512x512.png'],
       manifest: {
         short_name: "Ju Control",
         name: "Ju Control - Stock Management",
         icons: [
           {
-            src: "pwa-192x192.png",
+            src: "icon-192x192.png",
             type: "image/png",
             sizes: "192x192",
             purpose: "any maskable"
           },
           {
-            src: "pwa-512x512.png",
+            src: "icon-512x512.png",
             type: "image/png",
             sizes: "512x512",
             purpose: "any maskable"
