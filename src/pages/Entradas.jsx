@@ -8,7 +8,7 @@ import {
 } from '../components/ui/dialog'
 import { FaPlus } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -18,32 +18,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { 
+  darEntrada, 
+  listarEntradas,
+  atualizarEntrada,
+  
+} from "../services/firebase/entradas.js";
+import { listarProdutos,atualizarProduto } from "../services/firebase/produtos.js";
+import { ExportButton } from '@/components/ExportDocument';
+import { serverTimestamp } from "firebase/firestore";
+
+
 
 export default function Entradas() {
-
-  const entradasCadastradas = [
-    {
-      id: 1,
-      produto: "Chico",
-      fornecedor: "outro",
-      valor: "200,00",
-      quantidade: "3",
-      data: "25/05/2025"
-    },
-  ]
-
-  const produtosServicos = [
-    { id: 1, item: "Sobrancelha"},
-    { id: 2, item: "Gel"},
-    { id: 3, item: "Kit"}
-  ];
-
-  const [entradas, setEntradas] = useState(entradasCadastradas);
+  const [produtosServicos, setProdutosServicos] = useState([]);
+  const [entradas, setEntradas] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntrada, setEditingEntrada] = useState(null);
   const [filtroValor, setFiltroValor] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  // Colunas visíveis
   const [colunasVisiveis, setColunasVisiveis] = useState({
     data: true,
     fornecedor: true,
@@ -53,6 +47,33 @@ export default function Entradas() {
   });
 
   const { register, handleSubmit, reset } = useForm();
+
+  // Carrega produtos e entradas ao montar
+  useEffect(() => {
+    async function carregarDados() {
+      try {
+        setLoading(true);
+        
+        // Carrega produtos para o select
+        const produtos = await listarProdutos();
+        setProdutosServicos(produtos);
+        
+        // Carrega entradas
+        const entradasFirebase = await listarEntradas();
+        setEntradas(entradasFirebase);
+        
+        console.log("Produtos:", produtos);
+        console.log("Entradas:", entradasFirebase);
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        alert("Erro ao carregar dados!");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    carregarDados();
+  }, []);
 
   const handleAddClick = () => {
     setEditingEntrada(null);
@@ -66,35 +87,90 @@ export default function Entradas() {
     });
   };
 
-  const onSubmit = (data) => {
+const onSubmit = async (data) => {
+  try {
+    setLoading(true);
+    
     if (editingEntrada) {
+      // ATUALIZAR ENTRADA EXISTENTE
+      const produtoSelecionado = produtosServicos.find(p => p.nome === data.Produto);
+      
+      if (produtoSelecionado) {
+        // Calcula a diferença entre a nova quantidade e a quantidade anterior
+        const diferencaQuantidade = Number(data.Quantidade) - Number(editingEntrada.quantidade);
+        
+        // Ajusta o estoque baseado na diferença
+        await atualizarProduto(produtoSelecionado.id, {
+          estoque: Number(produtoSelecionado.estoque || 0) + diferencaQuantidade
+        });
+      }
+
+      // Atualiza a entrada no Firebase
+      await atualizarEntrada(editingEntrada.id, {
+        fornecedor: data.Fornecedor,
+        produto: data.Produto,
+        quantidade: Number(data.Quantidade),
+        valorPago: Number(data.Valor),
+      });
+      
+      // Atualiza o estado local
       setEntradas(entradas.map(entrada =>
         entrada.id === editingEntrada.id
           ? {
               ...entrada,
               fornecedor: data.Fornecedor,
               produto: data.Produto,
-              quantidade: data.Quantidade,
-              valor: parseFloat(data.Valor).toFixed(2),
-              data: new Date().toLocaleDateString('pt-BR'),
+              quantidade: Number(data.Quantidade),
+              valorPago: Number(data.Valor),
             }
           : entrada
       ));
+      
+      // Recarrega produtos para ter dados atualizados
+      const produtosAtualizados = await listarProdutos();
+      setProdutosServicos(produtosAtualizados);
+      
+      alert('Entrada atualizada com sucesso!');
+      
     } else {
-      const newEntrada = {
-        id: Date.now(),
+ 
+      await darEntrada({
         fornecedor: data.Fornecedor,
         produto: data.Produto,
-        quantidade: data.Quantidade,
-        valor: parseFloat(data.Valor).toFixed(2),
-        data: new Date().toLocaleDateString('pt-BR'),
-      };
-      setEntradas([...entradas, newEntrada]);
+        estoque: Number(data.Quantidade),
+        valorPago: Number(data.Valor),
+        createdAt: serverTimestamp()
+      });
+      
+      // Atualiza o estoque do produto
+      const produtoSelecionado = produtosServicos.find(p => p.nome === data.Produto);
+      if (produtoSelecionado) {
+        await atualizarProduto(produtoSelecionado.id, {
+          estoque: Number(produtoSelecionado.estoque || 0) + Number(data.Quantidade)
+        });
+      }
+      
+      // Recarrega produtos atualizados
+      const produtosAtualizados = await listarProdutos();
+      setProdutosServicos(produtosAtualizados);
+      
+      // Recarrega entradas
+      const entradasAtualizadas = await listarEntradas();
+      setEntradas(entradasAtualizadas);
+      
+      alert('Entrada cadastrada com sucesso!');
     }
-
+    
     setModalOpen(false);
     reset();
-  };
+    
+  } catch (error) {
+    console.error("Erro ao salvar entrada:", error);
+    alert("Erro ao salvar entrada: " + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Função para alternar visibilidade de coluna
   const toggleColuna = (coluna) => {
@@ -109,29 +185,121 @@ export default function Entradas() {
     if (!filtroValor) return true;
     
     const valorBusca = filtroValor.toLowerCase();
+    const dataFormatada = entrada.createdAt?.toDate 
+      ? new Date(entrada.createdAt.toDate()).toLocaleDateString('pt-BR')
+      : '';
+    
     return (
-      entrada.data.toLowerCase().includes(valorBusca) ||
-      entrada.fornecedor.toLowerCase().includes(valorBusca) ||
-      entrada.produto.toLowerCase().includes(valorBusca) ||
-      entrada.quantidade.toString().includes(valorBusca) ||
-      entrada.valor.includes(valorBusca)
+      dataFormatada.includes(valorBusca) ||
+      entrada.fornecedor?.toLowerCase().includes(valorBusca) ||
+      entrada.produto?.toLowerCase().includes(valorBusca) ||
+      entrada.quantidade?.toString().includes(valorBusca) ||
+      entrada.valorPago?.toString().includes(valorBusca)
     );
   });
+
+  // Formata data do Firestore
+  const formatarData = (timestamp) => {
+    if (!timestamp) return '-';
+    try {
+      return timestamp.toDate().toLocaleDateString('pt-BR');
+    } catch (error) {
+      return error;
+    }
+  };
+
+  const exportColumns = {
+    data: {
+      label: 'Data',
+      format: (timestamp) => formatarData(timestamp),
+      visible: colunasVisiveis.data
+    },
+    fornecedor: {
+      label: 'Fornecedor',
+      format: (value) => value || '-',
+      visible: colunasVisiveis.fornecedor
+    },
+    produto: {
+      label: 'Produto',
+      format: (value) => value || '-',
+      visible: colunasVisiveis.produto
+    },
+    quantidade: {
+      label: 'Unidades',
+      format: (value) => value?.toString() || '0',
+      visible: colunasVisiveis.quantidade
+    },
+    valorPago: {
+      label: 'Valor (R$)',
+      format: (value) => `R$ ${Number(value || 0).toFixed(2)}`,
+      visible: colunasVisiveis.valor
+    },
+
+
+  createdAt: {  // ⚠️ Certifique-se que este é o nome correto do campo
+    label: 'Data',
+    format: (timestamp) => {
+      // Verifique se timestamp existe
+      if (!timestamp) return '-';
+      
+      try {
+        // Se for um objeto do Firestore com método toDate()
+        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+          return timestamp.toDate().toLocaleDateString('pt-BR');
+        }
+        
+        // Se já for uma string de data
+        if (typeof timestamp === 'string') {
+          return new Date(timestamp).toLocaleDateString('pt-BR');
+        }
+        
+        // Se for um objeto Date
+        if (timestamp instanceof Date) {
+          return timestamp.toLocaleDateString('pt-BR');
+        }
+        
+        return '-';
+      } catch (error) {
+        console.error('Erro ao formatar data:', error, timestamp);
+        return '-';
+      }
+    },
+    visible: colunasVisiveis.data
+  },
+  };
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 md:px-8">
       <div className="container mx-auto">
         <div className="mb-6 flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div className="flex gap-3">
             <Button
               onClick={handleAddClick}
               className="bg-[#800020] hover:bg-[#600018] h-12 text-lg gap-2"
+              disabled={loading}
             >
               <FaPlus />
               Adicionar entrada
             </Button>
 
-            {/* Campo de busca */}
+               <ExportButton
+                data={entradasFiltradas}
+                columns={exportColumns}
+                fileName="relatorio_entradas"
+                title="Relatório de Entradas"
+                disabled={loading}
+                buttonLabel="Relatório"
+                showIcon={true}
+                className="h-12 text-lg"
+                onExportStart={() => console.log('Iniciando exportação...')}
+                onExportComplete={(success) => {
+                  if (success) {
+                    console.log('Exportação concluída com sucesso!');
+                  }
+                }}
+              />
+            </div>
             <input
               type="text"
               placeholder="Buscar em todas as colunas..."
@@ -142,6 +310,7 @@ export default function Entradas() {
                          focus:ring-[#800020] focus:border-transparent w-full md:w-80"
             />
           </div>
+
 
           {/* Seletor de colunas visíveis */}
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
@@ -200,65 +369,71 @@ export default function Entradas() {
           </div>
         </div>
 
-        <div>
-          <Table>
-            <TableCaption className="text-gray-500 py-4">
-              {entradasFiltradas.length === 0 
-                ? "Nenhuma entrada encontrada" 
-                : `${entradasFiltradas.length} entrada(s) encontrada(s)`}
-            </TableCaption>
-            <TableHeader className="items-center">
-              <TableRow className="bg-gray-50">
-                {colunasVisiveis.data && (
-                  <TableHead className="font-semibold">Data</TableHead>
-                )}
-                {colunasVisiveis.fornecedor && (
-                  <TableHead className="font-semibold">Fornecedor</TableHead>
-                )}
-                {colunasVisiveis.produto && (
-                  <TableHead className="font-semibold">Produto</TableHead>
-                )}
-                {colunasVisiveis.quantidade && (
-                  <TableHead className="font-semibold">Unidades</TableHead>
-                )}
-                {colunasVisiveis.valor && (
-                  <TableHead className="font-semibold text-right">Valor (R$)</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entradasFiltradas.map((row) => (
-                <TableRow key={row.id}>
+        {loading && entradas.length === 0 ? (
+          <div className="flex justify-center items-center h-64">
+            <p className="text-gray-500 text-xl">Carregando entradas...</p>
+          </div>
+        ) : (
+          <div>
+            <Table>
+              <TableCaption className="text-gray-500 py-4">
+                {entradasFiltradas.length === 0 
+                  ? "Nenhuma entrada encontrada" 
+                  : `${entradasFiltradas.length} entrada(s) encontrada(s)`}
+              </TableCaption>
+              <TableHeader className="items-center">
+                <TableRow className="bg-gray-50">
                   {colunasVisiveis.data && (
-                    <TableCell className="font-medium text-gray-700">
-                      {row.data}
-                    </TableCell>
+                    <TableHead className="font-semibold">Data</TableHead>
                   )}
                   {colunasVisiveis.fornecedor && (
-                    <TableCell className="text-gray-700">
-                      {row.fornecedor}
-                    </TableCell>
+                    <TableHead className="font-semibold">Fornecedor</TableHead>
                   )}
                   {colunasVisiveis.produto && (
-                    <TableCell className="text-gray-700">
-                      {row.produto}
-                    </TableCell>
+                    <TableHead className="font-semibold">Produto</TableHead>
                   )}
                   {colunasVisiveis.quantidade && (
-                    <TableCell className="text-gray-700">
-                      {row.quantidade}
-                    </TableCell>
+                    <TableHead className="font-semibold">Unidades</TableHead>
                   )}
                   {colunasVisiveis.valor && (
-                    <TableCell className="text-right text-gray-800 font-semibold">
-                      R$ {row.valor}
-                    </TableCell>
+                    <TableHead className="font-semibold text-right">Valor (R$)</TableHead>
                   )}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {entradasFiltradas.map((row) => (
+                  <TableRow key={row.id}>
+                    {colunasVisiveis.data && (
+                      <TableCell className="font-medium text-gray-700">
+                        {formatarData(row.createdAt)}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.fornecedor && (
+                      <TableCell className="text-gray-700">
+                        {row.fornecedor}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.produto && (
+                      <TableCell className="text-gray-700">
+                        {row.produto}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.quantidade && (
+                      <TableCell className="text-gray-700">
+                        {row.quantidade}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.valor && (
+                      <TableCell className="text-right text-gray-800 font-semibold">
+                        R$ {row.valorPago ? Number(row.valorPago).toFixed(2) : '0.00'}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -282,6 +457,7 @@ export default function Entradas() {
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200 
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
+                    disabled={loading}
                   />
                 </div>
 
@@ -292,11 +468,12 @@ export default function Entradas() {
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white 
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
+                    disabled={loading}
                   >
                     <option value="" className="text-gray-900">Selecione um produto</option>
                     {produtosServicos.map((item) => (
-                      <option key={item.id} value={item.item} className="text-gray-900">
-                        {item.item}
+                      <option key={item.id} value={item.nome} className="text-gray-900">
+                        {item.nome}
                       </option>
                     ))}
                   </select>
@@ -312,6 +489,7 @@ export default function Entradas() {
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200 
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
+                    disabled={loading}
                   />
                 </div>
 
@@ -326,6 +504,7 @@ export default function Entradas() {
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
+                    disabled={loading}
                   />
                 </div>
 
@@ -336,6 +515,7 @@ export default function Entradas() {
                     className="h-15 w-40 bg-white/20 text-white 
                                font-semibold rounded-lg hover:bg-white/30 active:scale-[0.98] 
                                transition-all shadow-md border border-white/30"
+                    disabled={loading}
                   >
                     Cancelar
                   </button>
@@ -343,9 +523,10 @@ export default function Entradas() {
                     type="submit"
                     className="h-15 w-40 bg-gradient-to-r from-[#800020] to-[#A04058] text-white 
                                font-semibold rounded-lg hover:opacity-90 active:scale-[0.98] 
-                               transition-all shadow-md"
+                               transition-all shadow-md disabled:opacity-50"
+                    disabled={loading}
                   >
-                    {editingEntrada ? 'Atualizar' : 'Cadastrar'}
+                    {loading ? 'Salvando...' : editingEntrada ? 'Atualizar' : 'Cadastrar'}
                   </button>
                 </div>
               </form>

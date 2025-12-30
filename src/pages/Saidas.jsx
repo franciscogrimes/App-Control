@@ -18,57 +18,83 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { 
+  darSaida, 
+  listarSaidas,
+  atualizarSaida,
+} from "../services/firebase/saidas.js";
+import { listarProdutos, atualizarProduto } from "../services/firebase/produtos.js";
+import { listarClientes } from "../services/firebase/clientes.js";
+import { ExportButton } from '@/components/ExportDocument'; // Importe o ExportButton
+import { serverTimestamp } from "firebase/firestore";
+
 
 export default function Saidas() {
-
-  const pedidosCadastrados = [
-    {
-      id: 1,
-      cliente: "Chico",
-      valor: "200,00",
-      quantidade: "3",
-      data: "25/10/2025"
-    },
-  ]
-
-  const produtosServicos = [
-    { id: 1, item: "Sobrancelha", valorUnitario: 50 },
-    { id: 2, item: "Gel", valorUnitario: 20 },
-    { id: 3, item: "Kit", valorUnitario: 75 }
-  ];
-
-  const [pedidos, setPedidos] = useState(pedidosCadastrados);
+  const [produtosServicos, setProdutosServicos] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [saidas, setSaidas] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState(null);
+  const [editingSaida, setEditingSaida] = useState(null);
   const [filtroValor, setFiltroValor] = useState('');
+  const [loading, setLoading] = useState(false);
   
   // Colunas visíveis
   const [colunasVisiveis, setColunasVisiveis] = useState({
     data: true,
     cliente: true,
+    produto: true,
     quantidade: true,
     valor: true
   });
 
-  const [quantidade, setQuantidade] = useState(1);
-  const [precoUnitario, setPrecoUnitario] = useState(5);
-  const [valorTotal, setValorTotal] = useState(precoUnitario * quantidade);
+  const [quantidade, setQuantidade] = useState();
+  const [precoUnitario, setPrecoUnitario] = useState(0);
+  const [valorTotal, setValorTotal] = useState(0);
+  const [produtoSelecionado, setProdutoSelecionado] = useState(null);
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, setValue } = useForm();
+
+  // Carrega dados ao montar
+  useEffect(() => {
+    async function carregarDados() {
+      try {
+        setLoading(true);
+        
+        const produtos = await listarProdutos();
+        setProdutosServicos(produtos);
+        
+        const clientesFirebase = await listarClientes();
+        setClientes(clientesFirebase);
+        
+        const saidasFirebase = await listarSaidas();
+        setSaidas(saidasFirebase);
+        
+        console.log("Produtos:", produtos);
+        console.log("Clientes:", clientesFirebase);
+        console.log("Saídas:", saidasFirebase);
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        alert("Erro ao carregar dados!");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    carregarDados();
+  }, []);
 
   const handleAddClick = () => {
-    setEditingClient(null);
+    setEditingSaida(null);
     setModalOpen(true);
 
     reset({
       Cliente: '',
-      Quantidade: '',
-      Valor: '',
-      Data: ''
+      Produto: '',
     });
-    setQuantidade(1);
-    setPrecoUnitario(5);
-    setValorTotal(5);
+    setQuantidade();
+    setPrecoUnitario(0);
+    setValorTotal(0);
+    setProdutoSelecionado(null);
   };
 
   // Atualiza o valor total automaticamente
@@ -76,31 +102,88 @@ export default function Saidas() {
     setValorTotal(precoUnitario * quantidade);
   }, [precoUnitario, quantidade]);
 
-  const onSubmit = (data) => {
-    if (editingClient) {
-      setPedidos(pedidos.map(pedido =>
-        pedido.id === editingClient.id
-          ? {
-              ...pedido,
-              cliente: data.Cliente,
-              quantidade,
-              valor: valorTotal.toFixed(2),
-              data: new Date().toLocaleDateString(),
-            }
-          : pedido
-      ));
-    } else {
-      const newClient = {
-        id: Date.now(),
-        cliente: data.Cliente,
-        quantidade,
-        valor: valorTotal.toFixed(2),
-        data: new Date().toLocaleDateString(),
-      };
-      setPedidos([...pedidos, newClient]);
-    }
+  const onSubmit = async (data) => {
+    try {
+      setLoading(true);
 
-    setModalOpen(false);
+      // Validação: verifica se há estoque suficiente
+      if (produtoSelecionado && produtoSelecionado.estoque < quantidade) {
+        alert(`Estoque insuficiente! Disponível: ${produtoSelecionado.estoque} unidades`);
+        return;
+      }
+      
+      if (editingSaida) {
+        // ATUALIZAR SAÍDA EXISTENTE
+        if (produtoSelecionado) {
+          // Calcula a diferença (pode ser negativa se diminuiu a quantidade)
+          const diferencaQuantidade = Number(data.Quantidade) - Number(editingSaida.quantidade);
+          
+          // Ajusta o estoque (negativo diminui, positivo aumenta)
+          await atualizarProduto(produtoSelecionado.id, {
+            estoque: Number(produtoSelecionado.estoque || 0) - diferencaQuantidade
+          });
+        }
+
+        await atualizarSaida(editingSaida.id, {
+          cliente: data.Cliente,
+          produto: data.Produto,
+          quantidade: Number(quantidade),
+          valorTotal: Number(valorTotal),
+        });
+        
+        setSaidas(saidas.map(saida =>
+          saida.id === editingSaida.id
+            ? {
+                ...saida,
+                cliente: data.Cliente,
+                produto: data.Produto,
+                quantidade: Number(quantidade),
+                valorTotal: Number(valorTotal),
+              }
+            : saida
+        ));
+        
+        const produtosAtualizados = await listarProdutos();
+        setProdutosServicos(produtosAtualizados);
+        
+        alert('Saída atualizada com sucesso!');
+        
+      } else {
+        // CRIAR NOVA SAÍDA
+        await darSaida({
+          cliente: data.Cliente,
+          produto: data.Produto,
+          quantidade: Number(quantidade),
+          valorTotal: Number(valorTotal),
+          createdAt: serverTimestamp()
+          
+        });
+        
+        // Diminui o estoque do produto
+        if (produtoSelecionado) {
+          await atualizarProduto(produtoSelecionado.id, {
+            estoque: Number(produtoSelecionado.estoque || 0) - Number(quantidade)
+          });
+        }
+        
+        const produtosAtualizados = await listarProdutos();
+        setProdutosServicos(produtosAtualizados);
+        
+        const saidasAtualizadas = await listarSaidas();
+        setSaidas(saidasAtualizadas);
+        
+        alert('Saída cadastrada com sucesso!');
+      }
+      
+      setModalOpen(false);
+      reset();
+      
+    } catch (error) {
+      console.error("Erro ao salvar saída:", error);
+      alert("Erro ao salvar saída: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Função para alternar visibilidade de coluna
@@ -112,30 +195,123 @@ export default function Saidas() {
   };
 
   // Filtro de busca geral
-  const pedidosFiltrados = pedidos.filter((pedido) => {
+  const saidasFiltradas = saidas.filter((saida) => {
     if (!filtroValor) return true;
-    
+
     const valorBusca = filtroValor.toLowerCase();
+
+    const dataFormatada = saida.createdAt?.toDate
+      ? new Date(saida.createdAt.toDate()).toLocaleDateString('pt-BR')
+      : '';
+
     return (
-      pedido.data.toLowerCase().includes(valorBusca) ||
-      pedido.cliente.toLowerCase().includes(valorBusca) ||
-      pedido.quantidade.toString().includes(valorBusca) ||
-      pedido.valor.includes(valorBusca)
+      dataFormatada.includes(valorBusca) ||
+      saida.cliente?.toLowerCase().includes(valorBusca) ||
+      saida.produto?.toLowerCase().includes(valorBusca) ||
+      saida.quantidade?.toString().includes(valorBusca) ||
+      saida.valorTotal?.toString().includes(valorBusca)
     );
   });
+
+  // Formata data do Firestore
+  const formatarData = (timestamp) => {
+    if (!timestamp) return '-';
+    try {
+      return timestamp.toDate().toLocaleDateString('pt-BR');
+    } catch (error) {
+      return error;
+    }
+  };
+
+  const exportColumns = {
+    createdAt: {
+      label: 'Data',
+      format: (timestamp) => {
+        if (!timestamp) return '-';
+        
+        try {
+          // Se for um objeto do Firestore com método toDate()
+          if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+            return timestamp.toDate().toLocaleDateString('pt-BR');
+          }
+          
+          // Se já for uma string de data
+          if (typeof timestamp === 'string') {
+            return new Date(timestamp).toLocaleDateString('pt-BR');
+          }
+          
+          // Se for um objeto Date
+          if (timestamp instanceof Date) {
+            return timestamp.toLocaleDateString('pt-BR');
+          }
+          
+          return '-';
+        } catch (error) {
+          console.error('Erro ao formatar data:', error, timestamp);
+          return '-';
+        }
+      },
+      visible: colunasVisiveis.data
+    },
+    cliente: {
+      label: 'Cliente',
+      format: (value) => value || '-',
+      visible: colunasVisiveis.cliente
+    },
+    produto: {
+      label: 'Produto',
+      format: (value) => value || '-',
+      visible: colunasVisiveis.produto
+    },
+    quantidade: {
+      label: 'Unidades',
+      format: (value) => value?.toString() || '0',
+      visible: colunasVisiveis.quantidade
+    },
+    valorTotal: {
+      label: 'Valor (R$)',
+      format: (value) => `R$ ${Number(value || 0).toFixed(2)}`,
+      visible: colunasVisiveis.valor
+    }
+  };
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 md:px-8">
       <div className="container mx-auto">
         <div className="mb-6 flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <Button
-              onClick={handleAddClick}
-              className="bg-[#800020] hover:bg-[#600018] h-12 text-lg gap-2"
-            >
-              <FaPlus />
-              Adicionar Saída
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleAddClick}
+                className="bg-[#800020] hover:bg-[#600018] h-12 text-lg gap-2"
+                disabled={loading}
+              >
+                <FaPlus />
+                Adicionar Saída
+              </Button>
+
+              <ExportButton
+                data={saidasFiltradas}
+                columns={exportColumns}
+                fileName="relatorio_saidas"
+                title="Relatório de Saídas"
+                disabled={loading}
+                buttonLabel="Relatório"
+                showIcon={true}
+                className="h-12 text-lg bg-green-600 hover:bg-green-700"
+                filterConfig={{
+                  showFornecedor: false,  // Não mostrar fornecedor
+                  showCliente: true,      // Mostrar cliente
+                  showProduto: true       // Mostrar produto
+                }}
+                onExportStart={() => console.log('Iniciando exportação de saídas...')}
+                onExportComplete={(success) => {
+                  if (success) {
+                    console.log('Exportação de saídas concluída com sucesso!');
+                  }
+                }}
+              />
+            </div>
 
             {/* Campo de busca */}
             <input
@@ -176,6 +352,16 @@ export default function Saidas() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  checked={colunasVisiveis.produto}
+                  onChange={() => toggleColuna('produto')}
+                  className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
+                />
+                <span className="text-sm text-gray-700">Produto</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
                   checked={colunasVisiveis.quantidade}
                   onChange={() => toggleColuna('quantidade')}
                   className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
@@ -196,64 +382,78 @@ export default function Saidas() {
           </div>
         </div>
 
-        <div>
-          <Table>
-            <TableCaption className="text-gray-500 py-4">
-              {pedidosFiltrados.length === 0 
-                ? "Nenhuma saída encontrada" 
-                : `${pedidosFiltrados.length} saída(s) encontrada(s)`}
-            </TableCaption>
-            <TableHeader className="items-center">
-              <TableRow className="bg-gray-50">
-                {colunasVisiveis.data && (
-                  <TableHead className="font-semibold">Data</TableHead>
-                )}
-                {colunasVisiveis.cliente && (
-                  <TableHead className="font-semibold">Cliente</TableHead>
-                )}
-                {colunasVisiveis.quantidade && (
-                  <TableHead className="font-semibold">Unidades</TableHead>
-                )}
-                {colunasVisiveis.valor && (
-                  <TableHead className="font-semibold text-right">Valor (R$)</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pedidosFiltrados.map((row) => (
-                <TableRow key={row.id}>
+        {loading && saidas.length === 0 ? (
+          <div className="flex justify-center items-center h-64">
+            <p className="text-gray-500 text-xl">Carregando saídas...</p>
+          </div>
+        ) : (
+          <div>
+            <Table>
+              <TableCaption className="text-gray-500 py-4">
+                {saidasFiltradas.length === 0 
+                  ? "Nenhuma saída encontrada" 
+                  : `${saidasFiltradas.length} saída(s) encontrada(s)`}
+              </TableCaption>
+              <TableHeader className="items-center">
+                <TableRow className="bg-gray-50">
                   {colunasVisiveis.data && (
-                    <TableCell className="font-medium text-gray-700">
-                      {row.data}
-                    </TableCell>
+                    <TableHead className="font-semibold">Data</TableHead>
                   )}
                   {colunasVisiveis.cliente && (
-                    <TableCell className="text-gray-700">
-                      {row.cliente}
-                    </TableCell>
+                    <TableHead className="font-semibold">Cliente</TableHead>
+                  )}
+                  {colunasVisiveis.produto && (
+                    <TableHead className="font-semibold">Produto</TableHead>
                   )}
                   {colunasVisiveis.quantidade && (
-                    <TableCell className="text-gray-700">
-                      {row.quantidade}
-                    </TableCell>
+                    <TableHead className="font-semibold">Unidades</TableHead>
                   )}
                   {colunasVisiveis.valor && (
-                    <TableCell className="text-right text-gray-800 font-semibold">
-                      R$ {row.valor}
-                    </TableCell>
+                    <TableHead className="font-semibold text-right">Valor (R$)</TableHead>
                   )}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {saidasFiltradas.map((row) => (
+                  <TableRow key={row.id}>
+                    {colunasVisiveis.data && (
+                      <TableCell className="font-medium text-gray-700">
+                        {formatarData(row.createdAt)}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.cliente && (
+                      <TableCell className="text-gray-700">
+                        {row.cliente}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.produto && (
+                      <TableCell className="text-gray-700">
+                        {row.produto}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.quantidade && (
+                      <TableCell className="text-gray-700">
+                        {row.quantidade}
+                      </TableCell>
+                    )}
+                    {colunasVisiveis.valor && (
+                      <TableCell className="text-right text-gray-800 font-semibold">
+                        R$ {row.valorTotal ? Number(row.valorTotal).toFixed(2) : '0.00'}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="flex items-center justify-center w-90 md:w-120 h-auto bg-white/20 backdrop-blur-md border border-white/30 rounded p-8">
           <DialogHeader className="w-full">
             <DialogTitle className="text-white font-bold text-3xl pb-5 text-center">
-              {editingClient ? 'Atualizar pedido' : 'Adicionar pedido'}
+              {editingSaida ? 'Atualizar saída' : 'Adicionar saída'}
             </DialogTitle>
 
             <DialogDescription>
@@ -263,36 +463,45 @@ export default function Saidas() {
               >
                 <div className="flex flex-col gap-1 w-full">
                   <label className="text-sm text-gray-200">Cliente</label>
-                  <input
-                    placeholder="Cliente"
-                    type="text"
+                  <select
                     {...register("Cliente", { required: true })}
-                    className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200 
+                    className="text-base w-full p-5 rounded-lg bg-white/20 text-white 
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
-                  />
+                    disabled={loading}
+                  >
+                    <option value="" className="text-gray-900">Selecione um cliente</option>
+                    {clientes.map((cliente) => (
+                      <option key={cliente.id} value={cliente.nome} className="text-gray-900">
+                        {cliente.nome}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex flex-col gap-1 w-full">
                   <label className="text-sm text-gray-200">Produto</label>
                   <select
-                    {...register("Produto")}
+                    {...register("Produto", { required: true })}
                     onChange={(e) => {
-                      const produtoSelecionado = produtosServicos.find(
-                        (item) => item.item === e.target.value
+                      const produto = produtosServicos.find(
+                        (item) => item.nome === e.target.value
                       );
-                      if (produtoSelecionado) {
-                        setPrecoUnitario(produtoSelecionado.valorUnitario);
+                      if (produto) {
+                        setProdutoSelecionado(produto);
+                        setPrecoUnitario(produto.preco);
+                        setValue("Produto", produto.nome);
                       }
                     }}
-                    className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200 
+                    className="text-base w-full p-5 rounded-lg bg-white/20 text-white 
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
+                    disabled={loading}
                   >
-                    <option value="">Selecione um produto</option>
+                    <option value="" className="text-gray-900">Selecione um produto</option>
                     {produtosServicos.map((item) => (
-                      <option key={item.id} value={item.item}>
-                        {item.item}
+                      <option key={item.id} value={item.nome} className="text-gray-900">
+                        {item.nome} - Estoque: {item.estoque}
                       </option>
                     ))}
                   </select>
@@ -302,14 +511,20 @@ export default function Saidas() {
                   <label className="text-sm text-gray-200">Quantidade</label>
                   <input
                     type="number"
-                    min="1"
+                    max={produtoSelecionado?.estoque || 999999}
                     placeholder="Ex: 3"
                     value={quantidade}
-                    onChange={(e) => setQuantidade(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setQuantidade(Number(e.target.value) || 1)}
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200 
                                border border-white/30 focus:outline-none focus:ring-2 
                                focus:ring-[#A04058] focus:border-transparent transition-all"
+                    disabled={loading}
                   />
+                  {produtoSelecionado && (
+                    <span className="text-xs text-gray-300">
+                      Disponível: {produtoSelecionado.estoque} unidades
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1 w-full">
@@ -320,7 +535,7 @@ export default function Saidas() {
                     value={precoUnitario}
                     readOnly
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white placeholder-gray-200 
-                               border border-white/30 focus:outline-none"
+                               border border-white/30 focus:outline-none cursor-not-allowed opacity-70"
                   />
                 </div>
 
@@ -331,7 +546,7 @@ export default function Saidas() {
                     readOnly
                     value={valorTotal.toFixed(2)}
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white 
-                               border border-white/30 focus:outline-none"
+                               border border-white/30 focus:outline-none cursor-not-allowed opacity-70"
                   />
                 </div>
 
@@ -342,6 +557,7 @@ export default function Saidas() {
                     className="h-15 w-40 bg-white/20 text-white 
                                font-semibold rounded-lg hover:bg-white/30 active:scale-[0.98] 
                                transition-all shadow-md border border-white/30"
+                    disabled={loading}
                   >
                     Cancelar
                   </button>
@@ -349,9 +565,10 @@ export default function Saidas() {
                     type="submit"
                     className="h-15 w-40 bg-gradient-to-r from-[#800020] to-[#A04058] text-white 
                                font-semibold rounded-lg hover:opacity-90 active:scale-[0.98] 
-                               transition-all shadow-md"
+                               transition-all shadow-md disabled:opacity-50"
+                    disabled={loading}
                   >
-                    {editingClient ? 'Atualizar' : 'Cadastrar'}
+                    {loading ? 'Salvando...' : editingSaida ? 'Atualizar' : 'Cadastrar'}
                   </button>
                 </div>
               </form>

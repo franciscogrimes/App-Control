@@ -12,8 +12,8 @@ export function Navbar() {
   const menuItems = [
     { name: "Dashboard", path: "/" },
     { name: "Clientes", path: "/clientes" },
-    { name: "Saidas", path: "/saidas" },
     { name: "Produtos", path: "/produtos" },
+    { name: "Saidas", path: "/saidas" },
     { name: "Entradas", path: "/entradas" },
   ];
 
@@ -23,7 +23,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="left-0 w-full bg-[#800020] backdrop-blur-lg border-b border-white/30 shadow-2xl">
+<nav className="fixed top-0 left-0 z-50 w-full bg-[#800020] backdrop-blur-lg border-b border-white/30 shadow-2xl">
       <div className="flex justify-between items-center p-2">
         <div className="flex justify-center items-center">
           <img 
