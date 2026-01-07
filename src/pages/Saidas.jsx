@@ -24,13 +24,15 @@ import {
   atualizarSaida,
 } from "../services/firebase/saidas.js";
 import { listarProdutos, atualizarProduto } from "../services/firebase/produtos.js";
+import { listarServicos } from "../services/firebase/services.js";
 import { listarClientes } from "../services/firebase/clientes.js";
-import { ExportButton } from '@/components/ExportDocument'; // Importe o ExportButton
+import { ExportButton } from '@/components/ExportDocument';
 import { serverTimestamp } from "firebase/firestore";
 
 
 export default function Saidas() {
   const [produtosServicos, setProdutosServicos] = useState([]);
+  const [servicos, setServicos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [saidas, setSaidas] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -54,6 +56,12 @@ export default function Saidas() {
 
   const { register, handleSubmit, reset, setValue } = useForm();
 
+  // Lista combinada de produtos e serviços
+  const itensDisponiveis = [
+    ...produtosServicos.map(p => ({ ...p, tipo: 'produto' })),
+    ...servicos.map(s => ({ ...s, tipo: 'servico' }))
+  ];
+
   // Carrega dados ao montar
   useEffect(() => {
     async function carregarDados() {
@@ -63,6 +71,9 @@ export default function Saidas() {
         const produtos = await listarProdutos();
         setProdutosServicos(produtos);
         
+        const servicosFirebase = await listarServicos();
+        setServicos(servicosFirebase);
+        
         const clientesFirebase = await listarClientes();
         setClientes(clientesFirebase);
         
@@ -70,6 +81,7 @@ export default function Saidas() {
         setSaidas(saidasFirebase);
         
         console.log("Produtos:", produtos);
+        console.log("Serviços:", servicosFirebase);
         console.log("Clientes:", clientesFirebase);
         console.log("Saídas:", saidasFirebase);
       } catch (error) {
@@ -106,19 +118,18 @@ export default function Saidas() {
     try {
       setLoading(true);
 
-      // Validação: verifica se há estoque suficiente
-      if (produtoSelecionado && produtoSelecionado.estoque < quantidade) {
+      // Validação: verifica se há estoque suficiente APENAS PARA PRODUTOS
+      if (produtoSelecionado && produtoSelecionado.tipo === 'produto' && produtoSelecionado.estoque < quantidade) {
         alert(`Estoque insuficiente! Disponível: ${produtoSelecionado.estoque} unidades`);
         return;
       }
       
       if (editingSaida) {
         // ATUALIZAR SAÍDA EXISTENTE
-        if (produtoSelecionado) {
-          // Calcula a diferença (pode ser negativa se diminuiu a quantidade)
+        // Atualiza estoque apenas se for produto
+        if (produtoSelecionado && produtoSelecionado.tipo === 'produto') {
           const diferencaQuantidade = Number(data.Quantidade) - Number(editingSaida.quantidade);
           
-          // Ajusta o estoque (negativo diminui, positivo aumenta)
           await atualizarProduto(produtoSelecionado.id, {
             estoque: Number(produtoSelecionado.estoque || 0) - diferencaQuantidade
           });
@@ -156,11 +167,10 @@ export default function Saidas() {
           quantidade: Number(quantidade),
           valorTotal: Number(valorTotal),
           createdAt: serverTimestamp()
-          
         });
         
-        // Diminui o estoque do produto
-        if (produtoSelecionado) {
+        // Atualiza estoque apenas se for produto
+        if (produtoSelecionado && produtoSelecionado.tipo === 'produto') {
           await atualizarProduto(produtoSelecionado.id, {
             estoque: Number(produtoSelecionado.estoque || 0) - Number(quantidade)
           });
@@ -259,7 +269,7 @@ export default function Saidas() {
       visible: colunasVisiveis.cliente
     },
     produto: {
-      label: 'Produto',
+      label: 'Produto/Serviço',
       format: (value) => value || '-',
       visible: colunasVisiveis.produto
     },
@@ -300,9 +310,9 @@ export default function Saidas() {
                 showIcon={true}
                 className="h-12 text-lg bg-green-600 hover:bg-green-700"
                 filterConfig={{
-                  showFornecedor: false,  // Não mostrar fornecedor
-                  showCliente: true,      // Mostrar cliente
-                  showProduto: true       // Mostrar produto
+                  showFornecedor: false,
+                  showCliente: true,
+                  showProduto: true
                 }}
                 onExportStart={() => console.log('Iniciando exportação de saídas...')}
                 onExportComplete={(success) => {
@@ -313,7 +323,6 @@ export default function Saidas() {
               />
             </div>
 
-            {/* Campo de busca */}
             <input
               type="text"
               placeholder="Buscar em todas as colunas..."
@@ -325,7 +334,6 @@ export default function Saidas() {
             />
           </div>
 
-          {/* Seletor de colunas visíveis */}
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Colunas visíveis:</h3>
             <div className="flex flex-wrap gap-4">
@@ -356,7 +364,7 @@ export default function Saidas() {
                   onChange={() => toggleColuna('produto')}
                   className="w-4 h-4 text-[#800020] rounded focus:ring-[#800020] focus:ring-2"
                 />
-                <span className="text-sm text-gray-700">Produto</span>
+                <span className="text-sm text-gray-700">Produto/Serviço</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -403,7 +411,7 @@ export default function Saidas() {
                     <TableHead className="font-semibold">Cliente</TableHead>
                   )}
                   {colunasVisiveis.produto && (
-                    <TableHead className="font-semibold">Produto</TableHead>
+                    <TableHead className="font-semibold">Produto/Serviço</TableHead>
                   )}
                   {colunasVisiveis.quantidade && (
                     <TableHead className="font-semibold">Unidades</TableHead>
@@ -480,17 +488,17 @@ export default function Saidas() {
                 </div>
 
                 <div className="flex flex-col gap-1 w-full">
-                  <label className="text-sm text-gray-200">Produto</label>
+                  <label className="text-sm text-gray-200">Produto/Serviço</label>
                   <select
                     {...register("Produto", { required: true })}
                     onChange={(e) => {
-                      const produto = produtosServicos.find(
+                      const item = itensDisponiveis.find(
                         (item) => item.nome === e.target.value
                       );
-                      if (produto) {
-                        setProdutoSelecionado(produto);
-                        setPrecoUnitario(produto.preco);
-                        setValue("Produto", produto.nome);
+                      if (item) {
+                        setProdutoSelecionado(item);
+                        setPrecoUnitario(item.preco);
+                        setValue("Produto", item.nome);
                       }
                     }}
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white 
@@ -498,12 +506,29 @@ export default function Saidas() {
                                focus:ring-[#A04058] focus:border-transparent transition-all"
                     disabled={loading}
                   >
-                    <option value="" className="text-gray-900">Selecione um produto</option>
-                    {produtosServicos.map((item) => (
-                      <option key={item.id} value={item.nome} className="text-gray-900">
-                        {item.nome} - Estoque: {item.estoque}
-                      </option>
-                    ))}
+                    <option value="" className="text-gray-900">Selecione um produto ou serviço</option>
+                    
+                    {/* Produtos */}
+                    {produtosServicos.length > 0 && (
+                      <optgroup label="📦 Produtos" className="text-gray-900 font-bold">
+                        {produtosServicos.map((item) => (
+                          <option key={item.id} value={item.nome} className="text-gray-900">
+                            {item.nome} - Estoque: {item.estoque}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    
+                    {/* Serviços */}
+                    {servicos.length > 0 && (
+                      <optgroup label="🛠️ Serviços" className="text-gray-900 font-bold">
+                        {servicos.map((item) => (
+                          <option key={item.id} value={item.nome} className="text-gray-900">
+                            {item.nome}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -511,7 +536,7 @@ export default function Saidas() {
                   <label className="text-sm text-gray-200">Quantidade</label>
                   <input
                     type="number"
-                    max={produtoSelecionado?.estoque || 999999}
+                    max={produtoSelecionado?.tipo === 'produto' ? produtoSelecionado?.estoque : 999999}
                     placeholder="Ex: 3"
                     value={quantidade}
                     onChange={(e) => setQuantidade(Number(e.target.value) || 1)}
@@ -520,7 +545,7 @@ export default function Saidas() {
                                focus:ring-[#A04058] focus:border-transparent transition-all"
                     disabled={loading}
                   />
-                  {produtoSelecionado && (
+                  {produtoSelecionado && produtoSelecionado.tipo === 'produto' && (
                     <span className="text-xs text-gray-300">
                       Disponível: {produtoSelecionado.estoque} unidades
                     </span>

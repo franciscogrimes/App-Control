@@ -7,6 +7,7 @@ import Clientes from "@/pages/Clientes";
 import Produtos from "@/pages/Produtos";
 import Saidas from "@/pages/Saidas";
 import Entradas from "@/pages/Entradas";
+import Servicos from "@/pages/Services";
 
 export const router = createBrowserRouter([
   {
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
       {
         path: "/entradas",
         element: <Entradas />
+      },
+      {
+        path: "/servicos",
+        element: <Servicos />
       }
     ]
   }

@@ -13,6 +13,7 @@ export function Navbar() {
     { name: "Dashboard", path: "/" },
     { name: "Clientes", path: "/clientes" },
     { name: "Produtos", path: "/produtos" },
+    { name: "Serviços", path: "/servicos" },
     { name: "Saidas", path: "/saidas" },
     { name: "Entradas", path: "/entradas" },
   ];
