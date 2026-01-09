@@ -280,7 +280,7 @@ export default function Saidas() {
     },
     valorTotal: {
       label: 'Valor (R$)',
-      format: (value) => `R$ ${Number(value || 0).toFixed(2)}`,
+      format: (value) => `R$ ${Number(value || 0).toFixed(2).replace(".",",")}`,
       visible: colunasVisiveis.valor
     }
   };
@@ -377,7 +377,7 @@ export default function Saidas() {
                 <span className="text-sm text-gray-700">Unidades</span>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex text-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={colunasVisiveis.valor}
@@ -446,7 +446,7 @@ export default function Saidas() {
                     )}
                     {colunasVisiveis.valor && (
                       <TableCell className="text-right text-gray-800 font-semibold">
-                        R$ {row.valorTotal ? Number(row.valorTotal).toFixed(2) : '0.00'}
+                        R$ {row.valorTotal ? Number(row.valorTotal).toFixed(2).replace(".",",") : '0,00'}
                       </TableCell>
                     )}
                   </TableRow>
@@ -569,7 +569,7 @@ export default function Saidas() {
                   <input
                     type="number"
                     readOnly
-                    value={valorTotal.toFixed(2)}
+                    value={valorTotal.toFixed(2).replace(".",",")}
                     className="text-base w-full p-5 rounded-lg bg-white/20 text-white 
                                border border-white/30 focus:outline-none cursor-not-allowed opacity-70"
                   />

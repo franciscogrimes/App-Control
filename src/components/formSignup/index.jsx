@@ -1,3 +1,4 @@
+import { signUpWithEmailAndPassword } from "@/services/firebase/auth";
 import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { withMask } from "use-mask-input";
@@ -16,6 +17,8 @@ export function FormSignup() {
     if(phoneRef.current){
         withMask('(99) 99999-9999')(phoneRef.current)
     }
+
+    signUpWithEmailAndPassword()
   },[])
   
 

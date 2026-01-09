@@ -175,7 +175,7 @@ export default function Servicos(){
                   <div className="flex justify-between items-center">
                     <span className="text-lg text-gray-600">Valor do serviço:</span>
                     <span className="text-gray-700 text-lg font-semibold">
-                      R$ {servico.preco ? Number(servico.preco).toFixed(2) : '0.00'}
+                      R$ {servico.preco ? Number(servico.preco).toFixed(2).replace(".",",") : '0,00'}
                     </span>
                   </div>
                 </CardContent>

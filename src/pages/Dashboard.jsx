@@ -148,8 +148,8 @@ export default function Dashboard() {
                   {lucro >= 0 ? 'Lucro Atual' : 'Prejuízo Atual'}
                 </h2>
               </div>
-              <p className="text-6xl font-black mb-2">
-                R$ {Math.abs(lucro).toFixed(2)}
+              <p className="text-5xl font-black mb-2">
+                R$ {Math.abs(lucro).toFixed(2).replace(".",",")}
               </p>
               <p className="text-lg opacity-90">
                 {lucro >= 0 
@@ -186,7 +186,7 @@ export default function Dashboard() {
                   <span className="text-2xl ml-1">{card.suffix}</span>
                 </>
               ) : (
-                `R$ ${Number(card.value).toFixed(2)}`
+                `R$ ${Number(card.value).toFixed(2).replace(".",",")}`
               )}
             </p>
           </div>
@@ -221,7 +221,7 @@ export default function Dashboard() {
                   <span className="text-2xl ml-1">{card.suffix}</span>
                 </>
               ) : (
-                `R$ ${Number(card.value).toFixed(2)}`
+                `R$ ${Number(card.value).toFixed(2).replace(".",",")}`
               )}
             </p>
           </div>
@@ -243,7 +243,7 @@ export default function Dashboard() {
             </p>
           </div>
           
-          <div className="p-6">
+          <div className="p-3">
             {ultimasSaidas.length === 0 ? (
               <div className="text-center py-12">
                 <BsBoxSeam className="text-6xl text-gray-300 mx-auto mb-4" />
@@ -262,7 +262,7 @@ export default function Dashboard() {
                     <TableHead className="font-bold text-gray-700">Cliente</TableHead>
                     <TableHead className="font-bold text-gray-700">Produto</TableHead>
                     <TableHead className="font-bold text-gray-700">Unidades</TableHead>
-                    <TableHead className="font-bold text-gray-700 text-right">Valor Total</TableHead>
+                    <TableHead className="font-bold text-gray-700 text-center">Valor Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -282,8 +282,8 @@ export default function Dashboard() {
                           {saida.quantidade}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-bold text-green-600">
-                        R$ {Number(saida.valorTotal || 0).toFixed(2)}
+                      <TableCell className="text-center font-bold text-green-600">
+                        R$ {Number(saida.valorTotal || 0).toFixed(2).replace(".",",")}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -296,7 +296,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Estatísticas Rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">
@@ -306,20 +305,20 @@ export default function Dashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Investido:</span>
                 <span className="font-bold text-red-600">
-                  R$ {totalInvestimento.toFixed(2)}
+                  R$ {totalInvestimento.toFixed(2).replace(".",",")}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total em Vendas:</span>
                 <span className="font-bold text-green-600">
-                  R$ {totalVendas.toFixed(2)}
+                  R$ {totalVendas.toFixed(2).replace(".",",")}
                 </span>
               </div>
               <div className="h-px bg-gray-200 my-2"></div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-700 font-semibold">Resultado:</span>
                 <span className={`font-bold text-lg ${lucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {lucro >= 0 ? '+' : ''} R$ {lucro.toFixed(2)}
+                  {lucro >= 0 ? '+' : ''} R$ {lucro.toFixed(2).replace(".",",")}
                 </span>
               </div>
             </div>
@@ -332,7 +331,7 @@ export default function Dashboard() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Unidades Totais:</span>
-                <span className="font-bold text-blue-600">
+                <span className="font-bold text-blue-600 text-center">
                   {totalEstoque} un.
                 </span>
               </div>

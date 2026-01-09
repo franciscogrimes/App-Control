@@ -182,7 +182,7 @@ export default function Produtos(){
                   <div className="flex justify-between items-center">
                     <span className="text-lg text-gray-600">Valor do produto:</span>
                     <span className="text-gray-700 text-lg">
-                      R$ {produto.preco ? Number(produto.preco).toFixed(2) : '0.00'}
+                      R$ {produto.preco ? Number(produto.preco).toFixed(2).replace(".",",") : '0,00'}
                     </span>
                   </div>
                 </CardContent>

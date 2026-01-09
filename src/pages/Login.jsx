@@ -26,17 +26,7 @@ export default function Login() {
           <FormLogin />
         </div>
 
-        <div className="p-5 bg-white/10 text-center text-sm text-white border-t border-white/20">
-          <p>
-            Não tem uma conta?
-             <a
-              href="/signup"
-              className="text-[#FFD6E0] font-semibold hover:underline"
-            >
-               Cadastre-se
-            </a>
-          </p>
-        </div>
+        
       </div>
     </section>
   );

@@ -147,7 +147,7 @@ export default function Clientes(){
   };
 
   return(
-    <section className="h-auto bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 md:px-8">
+    <section className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 md:px-8">
       <div className="container mx-auto">
         <div className="mb-6">
           <Button 

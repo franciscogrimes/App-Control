@@ -4,6 +4,9 @@ import logo from "../../public/logo.svg";
 
 
 export default function Signup() {
+
+
+
   return (
     <section className="relative min-h-screen w-screen flex items-center justify-center p-4 overflow-y-auto">
       <img

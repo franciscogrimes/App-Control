@@ -231,7 +231,7 @@ const onSubmit = async (data) => {
     },
     valorPago: {
       label: 'Valor (R$)',
-      format: (value) => `R$ ${Number(value || 0).toFixed(2)}`,
+      format: (value) => `R$ ${Number(value || 0).toFixed(2).replace(".",",")}`,
       visible: colunasVisiveis.valor
     },
 
@@ -311,8 +311,6 @@ const onSubmit = async (data) => {
             />
           </div>
 
-
-          {/* Seletor de colunas visíveis */}
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Colunas visíveis:</h3>
             <div className="flex flex-wrap gap-4">
@@ -425,7 +423,7 @@ const onSubmit = async (data) => {
                     )}
                     {colunasVisiveis.valor && (
                       <TableCell className="text-right text-gray-800 font-semibold">
-                        R$ {row.valorPago ? Number(row.valorPago).toFixed(2) : '0.00'}
+                        R$ {row.valorPago ? Number(row.valorPago).toFixed(2).replace(".",",") : '0,00'}
                       </TableCell>
                     )}
                   </TableRow>
